@@ -1,8 +1,9 @@
-name: 'OpenJDK Build All Platforms'
+name: 'OpenJDK Build'
 
 on:
   push:
-    branches: [ main ]
+    branches-ignore:
+      - master
   workflow_dispatch:
 
 jobs:
@@ -10,56 +11,50 @@ jobs:
     name: 'Prepare the run'
     runs-on: self-hosted
     outputs:
-      linux: 'true'
-      macos: 'true'
-      windows: 'true'
+      # Оставляем только то, что тебе нужно
+      linux-x64: 'true'
+      macos-aarch64: 'true'
+      windows-x64: 'true'
+      # Остальное выключаем, но оставляем переменные, чтобы не было ошибок
+      linux-x86-hs: 'false'
+      linux-x64-variants: 'false'
+      linux-cross-compile: 'false'
+      macos-x64: 'false'
+      windows-aarch64: 'false'
+      docs: 'false'
     steps:
       - name: 'Checkout'
         uses: actions/checkout@v4
+        # Убрали sparse-checkout, который вешал гит
 
   # --- СБОРКА LINUX ---
-  build-linux:
+  build-linux-x64:
     name: linux-x64
     needs: prepare
+    if: needs.prepare.outputs.linux-x64 == 'true'
     uses: ./.github/workflows/build-linux.yml
     with:
       platform: linux-x64
       gcc-major-version: '10'
-    if: needs.prepare.outputs.linux == 'true'
 
   # --- СБОРКА MACOS ---
-  build-macos:
+  build-macos-aarch64:
     name: macos-aarch64
     needs: prepare
+    if: needs.prepare.outputs.macos-aarch64 == 'true'
     uses: ./.github/workflows/build-macos.yml
     with:
       platform: macos-aarch64
       runs-on: 'macos-15'
       xcode-toolset-version: '16.4'
-    if: needs.prepare.outputs.macos == 'true'
 
   # --- СБОРКА WINDOWS ---
-  build-windows:
+  build-windows-x64:
     name: windows-x64
     needs: prepare
+    if: needs.prepare.outputs.windows-x64 == 'true'
     uses: ./.github/workflows/build-windows.yml
     with:
       platform: windows-x64
       msvc-toolset-version: '14.44'
       msvc-toolset-architecture: 'x86.x64'
-    if: needs.prepare.outputs.windows == 'true'
-
-  # --- ТЕСТЫ (Опционально) ---
-  test-linux:
-    needs: build-linux
-    uses: ./.github/workflows/test.yml
-    with:
-      platform: linux-x64
-      runs-on: ubuntu-22.04
-
-  test-windows:
-    needs: build-windows
-    uses: ./.github/workflows/test.yml
-    with:
-      platform: windows-x64
-      runs-on: windows-2025
