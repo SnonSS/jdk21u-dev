@@ -4,46 +4,30 @@ on:
   push:
     branches-ignore:
       - master
-      - pr/*
   workflow_dispatch:
-    inputs:
-      platforms:
-        description: 'Platforms'
-        required: true
-        default: 'linux-x64, macos-aarch64, windows-x64'
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
   prepare:
     name: 'Prepare the run'
-    runs-on: self-hosted # ТВОЙ СЕРВЕР
+    runs-on: self-hosted
     outputs:
-      linux-x64: ${{ steps.include.outputs.linux-x64 }}
-      macos-aarch64: ${{ steps.include.outputs.macos-aarch64 }}
-      windows-x64: ${{ steps.include.outputs.windows-x64 }}
-      # Заглушки для совместимости
+      linux-x64: 'true'
+      macos-aarch64: 'true'
+      windows-x64: 'true'
+      # Заглушки, чтобы не ломать логику оригинальных скриптов
       linux-x86-hs: 'false'
       linux-x64-variants: 'false'
       linux-cross-compile: 'false'
       macos-x64: 'false'
       windows-aarch64: 'false'
       docs: 'false'
-
     steps:
       - name: 'Checkout'
         uses: actions/checkout@v4
-        # Sparse-checkout вырезан, чтобы не было ошибок 'not a directory'
 
-      - name: 'Check what jobs to run'
-        id: include
-        run: |
-          # Просто включаем основные платформы
-          echo "linux-x64=true" >> $GITHUB_OUTPUT
-          echo "macos-aarch64=true" >> $GITHUB_OUTPUT
-          echo "windows-x64=true" >> $GITHUB_OUTPUT
+      # ВОТ ЭТОТ ШАГ НУЖЕН, ЧТОБЫ ТЕСТЫ НЕ ПАДАЛИ
+      - name: 'Build JTReg'
+        uses: ./.github/actions/build-jtreg
 
   build-linux-x64:
     name: linux-x64
@@ -74,10 +58,10 @@ jobs:
       msvc-toolset-version: '14.44'
       msvc-toolset-architecture: 'x86.x64'
 
-  # ТЕСТЫ ОСТАВЛЯЕМ, НО ОНИ МОГУТ ПАДАТЬ ИЗ-ЗА JTREG
+  # Тесты теперь найдут свой jtreg
   test-linux-x64:
     name: linux-x64
-    needs: build-linux-x64
+    needs: [prepare, build-linux-x64]
     uses: ./.github/workflows/test.yml
     with:
       platform: linux-x64
