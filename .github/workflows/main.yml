@@ -4,30 +4,47 @@ on:
   push:
     branches-ignore:
       - master
+      - pr/*
   workflow_dispatch:
+    inputs:
+      platforms:
+        description: 'Platforms'
+        required: true
+        default: 'linux-x64, macos-aarch64, windows-x64'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   prepare:
     name: 'Prepare the run'
-    runs-on: self-hosted
+    runs-on: self-hosted # ТВОЙ СЕРВЕР
     outputs:
-      # Оставляем только то, что тебе нужно
-      linux-x64: 'true'
-      macos-aarch64: 'true'
-      windows-x64: 'true'
-      # Остальное выключаем, но оставляем переменные, чтобы не было ошибок
+      linux-x64: ${{ steps.include.outputs.linux-x64 }}
+      macos-aarch64: ${{ steps.include.outputs.macos-aarch64 }}
+      windows-x64: ${{ steps.include.outputs.windows-x64 }}
+      # Заглушки для совместимости
       linux-x86-hs: 'false'
       linux-x64-variants: 'false'
       linux-cross-compile: 'false'
       macos-x64: 'false'
       windows-aarch64: 'false'
       docs: 'false'
+
     steps:
       - name: 'Checkout'
         uses: actions/checkout@v4
-        # Убрали sparse-checkout, который вешал гит
+        # Sparse-checkout вырезан, чтобы не было ошибок 'not a directory'
 
-  # --- СБОРКА LINUX ---
+      - name: 'Check what jobs to run'
+        id: include
+        run: |
+          # Просто включаем основные платформы
+          echo "linux-x64=true" >> $GITHUB_OUTPUT
+          echo "macos-aarch64=true" >> $GITHUB_OUTPUT
+          echo "windows-x64=true" >> $GITHUB_OUTPUT
+
   build-linux-x64:
     name: linux-x64
     needs: prepare
@@ -37,7 +54,6 @@ jobs:
       platform: linux-x64
       gcc-major-version: '10'
 
-  # --- СБОРКА MACOS ---
   build-macos-aarch64:
     name: macos-aarch64
     needs: prepare
@@ -48,7 +64,6 @@ jobs:
       runs-on: 'macos-15'
       xcode-toolset-version: '16.4'
 
-  # --- СБОРКА WINDOWS ---
   build-windows-x64:
     name: windows-x64
     needs: prepare
@@ -58,3 +73,13 @@ jobs:
       platform: windows-x64
       msvc-toolset-version: '14.44'
       msvc-toolset-architecture: 'x86.x64'
+
+  # ТЕСТЫ ОСТАВЛЯЕМ, НО ОНИ МОГУТ ПАДАТЬ ИЗ-ЗА JTREG
+  test-linux-x64:
+    name: linux-x64
+    needs: build-linux-x64
+    uses: ./.github/workflows/test.yml
+    with:
+      platform: linux-x64
+      bootjdk-platform: linux-x64
+      runs-on: ubuntu-22.04
