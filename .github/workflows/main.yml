@@ -55,7 +55,7 @@ jobs:
 
   prepare:
     name: 'Prepare the run'
-    runs-on: ubuntu-22.04
+    runs-on: self-hosted
     outputs:
       linux-x64: ${{ steps.include.outputs.linux-x64 }}
       linux-x86-hs: ${{ steps.include.outputs.linux-x86-hs }}
